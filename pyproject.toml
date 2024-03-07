@@ -21,6 +21,8 @@ tensorrt = {version = "^8.6.1.post1", source = "nvidia"}
 tensorrt-libs = {version = "^8.6.1", source = "nvidia"}
 tensorrt-bindings = {version = "^8.6.1", source = "nvidia"}
 scikit-image = "^0.22.0"
+pyarrow = "14"
+sympy = "^1.12"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "*"
