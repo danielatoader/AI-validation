@@ -18,6 +18,8 @@ import pingouin as pg
 import pandas as pd
 from scipy import stats
 import numpy as np
+# define a XGBoost classifier
+import xgboost as xgb
 import warnings
 
 warnings.filterwarnings("ignore")  # Ignore runtime warnings
@@ -159,8 +161,6 @@ X = X.astype(np.float32)
 # Let's split the dataset into train and test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=True, stratify=y)
 #%%
-# TODO: Experimenting with different oversampling ratios or trying other techniques like ADASYN might provide different results.
-
 smote = SMOTE(random_state=42)
 X_train, y_train = smote.fit_resample(X_train, y_train)
 
@@ -202,12 +202,21 @@ print(features_sorted.head(50))
 # # Manually select the features from your dataframe
 # X_selected = data_reduced[features_to_select]
 
-X_selected = X.iloc[:, 3:13]
+X_selected = X.iloc[:, :20]
 #%% md
 # # Feature scaling and model training
 #%%
-# Define a gradient boosting classifier
-classifier = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=1, random_state=0)
+classifier = xgb.XGBClassifier(
+    n_estimators=100,
+    learning_rate=0.1,
+    max_depth=5,
+    subsample=0.9,
+    colsample_bytree=0.9,
+    scale_pos_weight=(len(y)-sum(y))/sum(y),  # Adjusting for imbalance
+    use_label_encoder=False,  # To avoid warning
+    eval_metric='logloss',  # Evaluation metric to avoid warning
+    random_state=0
+)
 #%%
 # Create a pipeline object with our selector and classifier
 # NOTE: You can create custom pipeline objects but they must be registered to onnx or it will not recognise them
@@ -215,7 +224,7 @@ classifier = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max
 # TODO: The pipeline construction and inclusion of feature scaling via StandardScaler is a good practice, ensuring that your model is not biased by the scale of the features.
 pipeline_steps = [
     ('scaling', StandardScaler()),
-    ('classification', RandomForestClassifier())
+    ('classification', classifier)
 ]
 
 pipeline = Pipeline(steps=pipeline_steps)
