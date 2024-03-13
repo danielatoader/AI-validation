@@ -1,20 +1,26 @@
 #%%
-import pandas as pd
-import numpy as np
+# # # TODO: The threshold of 0.5 is arbitrary and might need to be adjusted based on your specific dataset and the model you are using. For some models, even moderately correlated features might pose problems, while for others, even higher correlations might not be as concerning.
+# # # TODO: As a baseline model we can also use a model that has built-in mechanisms for feature selection (like L1 regularization for linear models). 
+# # # TODO: Saga: Not checking missing values, outliers, or other data quality issues, imbalanced dataset. These can also affect the model's performance and should be addressed before or during feature selection.
+#%%
 from sklearn.model_selection import train_test_split
 import onnxruntime as rt
 import onnx
 from skl2onnx.common.data_types import FloatTensorType
 from skl2onnx import to_onnx
-from sklearn.feature_selection import VarianceThreshold
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from sklearn.pipeline import Pipeline
+from imblearn.over_sampling import SMOTE
 from skl2onnx import convert_sklearn
 from sklearn.preprocessing import StandardScaler
 import pingouin as pg
+import pandas as pd
+from scipy import stats
+import numpy as np
+import warnings
 
-
+warnings.filterwarnings("ignore")  # Ignore runtime warnings
 # Temporarily adjust pandas display settings for large DataFrames
 pd.set_option('display.max_rows', 100)  # Ensure 100 rows can be displayed
 pd.set_option('display.max_columns', None)  # Ensure all columns can be displayed
@@ -24,106 +30,125 @@ pd.set_option('display.float_format', '{:.4f}'.format)  # Format the float numbe
 
 #%% md
 # # Data preprocessing and feature selection
+# 
+# Our data consists of binary data so we only want to calculate the Z-score for non-binary colomns
 #%%
-# Let's load the dataset
+# Load the dataset
 data = pd.read_csv('data/synth_data_for_training.csv')
 #%%
-# Calculate the correlation matrix
-corr_matrix = data.corr()
+import pandas as pd
+import numpy as np
+from scipy import stats
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Initialize lists to store the results
-highly_correlated_pairs = []
+# Load the dataset
+data = pd.read_csv('data/synth_data_for_training.csv')
 
-# Thresholds
-threshold = 0.5
-partial_threshold = 0.5
+print("Before cleaning:")
+print("Missing values per column:")
+print("Total missing values:", data.isna().sum().sum())
 
-# Identify highly correlated pairs controlling for a third variable
-for i in range(len(corr_matrix.columns)):
-    for j in range(i+1, len(corr_matrix.columns)):  # i+1 to avoid self-correlation
-        corr_value = corr_matrix.iloc[i, j]
-        if abs(corr_value) > threshold:  # Check for high correlation
-            for k in range(len(corr_matrix.columns)):
-                if k != i and k != j:  # Exclude self-correlation and the current pair
-                    # Calculate partial correlation
+# Identify non-binary columns
+non_binary_columns = [col for col in data.columns if not (np.isin(data[col].unique(), [0, 1]).all() and len(data[col].unique()) == 2)]
+
+# Calculate Z-scores for non-binary columns only
+z_scores_non_binary = np.abs(stats.zscore(data[non_binary_columns], nan_policy='omit'))
+
+# Mask to identify rows with outliers in non-binary columns
+outlier_mask = (z_scores_non_binary > 3).any(axis=1)
+
+# Select a subset of non-binary columns for plotting to avoid large image sizes
+plot_columns = non_binary_columns[:5]  # Adjust this number based on your specific needs
+
+# Plot outliers for the selected columns before removing
+plt.figure(figsize=(20, 5))
+for i, col in enumerate(plot_columns, 1):
+    plt.subplot(1, len(plot_columns), i)
+    sns.boxplot(y=data[col])
+    plt.title(f'Before: {col}')
+plt.tight_layout()
+plt.show()
+
+# Remove outliers from the dataset using the previously defined full_outlier_mask
+data_cleaned = data[~outlier_mask]
+
+print("After cleaning:")
+print("Missing values per column:")
+print("Total missing values:", data_cleaned.isna().sum().sum())
+
+# Plot outliers for the selected columns after removing
+plt.figure(figsize=(20, 5))
+for i, col in enumerate(plot_columns, 1):
+    plt.subplot(1, len(plot_columns), i)
+    sns.boxplot(y=data_cleaned[col])
+    plt.title(f'After: {col}')
+plt.tight_layout()
+plt.show()
+
+# Print the shape of the dataset before and after cleaning
+print("Shape before cleaning:", data.shape)
+print("Shape after cleaning:", data_cleaned.shape)
+#%%
+def calculate_correlation_matrix(data):
+    return data.corr()
+
+def identify_strong_correlations(corr_matrix, threshold=0.3):
+    strong_pairs = []
+    for i in range(len(corr_matrix.columns)):
+        for j in range(i + 1, len(corr_matrix.columns)):
+            corr_value = corr_matrix.iloc[i, j]
+            if abs(corr_value) > threshold:
+                strong_pairs.append((i, j, corr_value))
+    return strong_pairs
+
+def evaluate_partial_correlation(data, corr_matrix, strong_pairs, partial_threshold=0.2):
+    highly_correlated_pairs = []
+    for i, j, corr_value in strong_pairs:
+        for k in range(len(corr_matrix.columns)):
+            if k != i and k != j:
+                subset = data[[corr_matrix.columns[i], corr_matrix.columns[j], corr_matrix.columns[k]]].dropna()
+                if subset.shape[0] >= 3:
                     partial_corr = pg.partial_corr(data, x=corr_matrix.columns[i], y=corr_matrix.columns[j], covar=corr_matrix.columns[k])
                     if abs(partial_corr['r'].values[0]) < partial_threshold:
                         highly_correlated_pairs.append((corr_matrix.columns[i], corr_matrix.columns[j], corr_value, corr_matrix.columns[k]))
                         break
+                else:
+                    print(f"Skipping due to insufficient data: {corr_matrix.columns[i]}, {corr_matrix.columns[j]}, {corr_matrix.columns[k]}")
+    return highly_correlated_pairs
+
+def find_highly_correlated_pairs(data, corr_matrix, threshold=0.5, partial_threshold=0.5):
+    strong_pairs = identify_strong_correlations(corr_matrix, threshold)
+    highly_correlated_pairs = evaluate_partial_correlation(data, corr_matrix, strong_pairs, partial_threshold)
+    return highly_correlated_pairs
+
+def determine_features_to_remove(corr_matrix, highly_correlated_pairs):
+    features_to_remove = set()
+    for i, j, _, _ in highly_correlated_pairs:
+        avg_corr_i = corr_matrix[i].abs().mean()
+        avg_corr_j = corr_matrix[j].abs().mean()
+        if avg_corr_i > avg_corr_j:
+            features_to_remove.add(i)
+        else:
+            features_to_remove.add(j)
+    return features_to_remove
+
+def reduce_features_from_data(data, features_to_remove):
+    return data.drop(columns=list(features_to_remove))
+
+def main(data):
+    corr_matrix = calculate_correlation_matrix(data)
+    highly_correlated_pairs = find_highly_correlated_pairs(data, corr_matrix)
+    features_to_remove = determine_features_to_remove(corr_matrix, highly_correlated_pairs)
+    data_reduced = reduce_features_from_data(data, features_to_remove)
+    print(f"Original number of features: {data.shape[1]}, Reduced number of features: {data_reduced.shape[1]}")
+    return data_reduced
 
 
-# Determine features to remove
-# Simple strategy: Remove one feature from each identified pair, preferentially keeping the one with lower average correlation with other features
-features_to_remove = set()
-for pair in highly_correlated_pairs:
-    # Calculate average correlation of each feature with others
-    avg_corr_i = corr_matrix[pair[0]].abs().mean()
-    avg_corr_j = corr_matrix[pair[1]].abs().mean()
-
-    # Prefer to remove the feature with higher average correlation
-    if avg_corr_i > avg_corr_j:
-        features_to_remove.add(pair[0])
-    else:
-        features_to_remove.add(pair[1])
-
-# Create a new DataFrame excluding the features identified for removal
-data_reduced = data.drop(columns=list(features_to_remove))
-
-print(f"Original number of features: {data.shape[1]}, Reduced number of features: {data_reduced.shape[1]}")
+data_reduced = main(data)
 #%%
-# # # TODO: Jasper: Correlation does not imply causation. Two variables might be correlated due to a third variable or by coincidence.
-# # # TODO: The threshold of 0.5 is arbitrary and might need to be adjusted based on your specific dataset and the model you are using. For some models, even moderately correlated features might pose problems, while for others, even higher correlations might not be as concerning.
-# # # TODO: As a baseline model we can also use a model that has built-in mechanisms for feature selection (like L1 regularization for linear models). 
-# # # TODO: Saga: Not checking missing values, outliers, or other data quality issues, imbalanced dataset. These can also affect the model's performance and should be addressed before or during feature selection.
-# # 
-# # Assuming data is your DataFrame
-# # Calculate the correlation matrix
-# corr_matrix = data.corr()
-# 
-# # Initialize lists to store the results
-# highly_pos_correlated_pairs = []
-# highly_neg_correlated_pairs = []
-# 
-# # Threshold for filtering high correlations (you can adjust this value)
-# threshold = 0.5
-# 
-# # Iterate over the correlation matrix and store pairs of highly correlated features
-# for i in range(len(corr_matrix.columns)):
-#     for j in range(i+1, len(corr_matrix.columns)):  # i+1 to avoid self-correlation
-#         if corr_matrix.iloc[i, j] > threshold:  # Positive correlation
-#             highly_pos_correlated_pairs.append((corr_matrix.columns[i], corr_matrix.columns[j], corr_matrix.iloc[i, j]))
-#         elif corr_matrix.iloc[i, j] < -threshold:  # Negative correlation
-#             highly_neg_correlated_pairs.append((corr_matrix.columns[i], corr_matrix.columns[j], corr_matrix.iloc[i, j]))
-# 
-# # Sort the lists based on the correlation value
-# highly_pos_correlated_pairs.sort(key=lambda x: x[2], reverse=True)
-# highly_neg_correlated_pairs.sort(key=lambda x: x[2])
-# 
-# # Print out the highest positively and negatively correlated feature pairs
-# print("Highly Positive Correlated Pairs:")
-# for pair in highly_pos_correlated_pairs:
-#     print(f"{pair[0]} and {pair[1]} with correlation {pair[2]:.2f}")
-# 
-# print("\nHighly Negative Correlated Pairs:")
-# for pair in highly_neg_correlated_pairs:
-#     print(f"{pair[0]} and {pair[1]} with correlation {pair[2]:.2f}")
-# 
-# # Assuming we choose to remove the second feature from each pair
-# features_to_remove = {pair[1] for pair in highly_pos_correlated_pairs + highly_neg_correlated_pairs}
-# 
-# # Create a new DataFrame excluding the features identified for removal
-# data_reduced = data.drop(columns=list(features_to_remove))
-# 
-# print(f"Original number of features: {data.shape[1]}, Reduced number of features: {data_reduced.shape[1]}")
-
-#%% md
-# test_size=0.20: This parameter specifies the proportion of the dataset to include in the test split. In this case, 20% of the data will be used for testing, and the remaining 80% will be used for training the model. The choice of test size affects model evaluation - too small a test set might not provide a representative evaluation of the model, while too large a test set might leave too little data for training, potentially leading to a poorly trained model.
-# 
-# random_state=42: This is a seed value for the random number generator. It ensures that the split between the training and testing sets is reproducible. Different seed values can result in different splits, which might lead to variations in model performance. Using a fixed random_state ensures that your results are reproducible, which is good for debugging and comparing models. However, relying solely on a single split can lead to overfitting to that specific partition of data, so it's often good practice to use cross-validation for more reliable estimates of model performance.
-# 
-# shuffle=True: This parameter indicates whether or not to shuffle the data before splitting. Shuffling is usually beneficial because it randomizes the distribution of data points across the training and testing sets, reducing the risk of biased splits. This is especially important if the data is ordered or clustered in some way that might influence learning if not randomized.
-# 
-# stratify=y: Stratifying means that the data is split in a way that preserves the same proportions of examples in each class as observed in the original dataset. This is crucial for imbalanced datasets, where one class significantly outnumbers the other(s). Without stratification, there's a risk that the training and testing sets might not accurately represent the class distribution, leading to skewed model evaluation and performance. Stratifying helps ensure that both training and test sets are representative of the overall dataset.
+# Check how imbalance the dataset is
+data_reduced['checked'].value_counts(normalize=True)
 #%%
 # Let's specify the features and the target
 y = data_reduced['checked']
@@ -133,6 +158,14 @@ X = X.astype(np.float32)
 # TODO: Instead of a single train-test split, consider using cross-validation to assess model performance more robustly. This approach can help ensure the model's generalizability across different subsets of our data.
 # Let's split the dataset into train and test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=True, stratify=y)
+#%%
+# TODO: Experimenting with different oversampling ratios or trying other techniques like ADASYN might provide different results.
+
+smote = SMOTE(random_state=42)
+X_train, y_train = smote.fit_resample(X_train, y_train)
+
+# Check how imbalance the dataset is after SMOTE
+y_train.value_counts(normalize=True)
 #%%
 # TODO: Further explore feature engineering possibilities. Creating new features based on domain knowledge can provide the model with additional insights, potentially improving performance
 
@@ -169,8 +202,7 @@ print(features_sorted.head(50))
 # # Manually select the features from your dataframe
 # X_selected = data_reduced[features_to_select]
 
-# take first 10 features
-X_selected = X.iloc[:, :10]
+X_selected = X.iloc[:, 3:13]
 #%% md
 # # Feature scaling and model training
 #%%
