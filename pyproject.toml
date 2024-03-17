@@ -23,6 +23,12 @@ tensorrt-bindings = {version = "^8.6.1", source = "nvidia"}
 scikit-image = "^0.22.0"
 pyarrow = "14"
 sympy = "^1.12"
+onnx = "^1.15.0"
+onnxruntime = "^1.17.1"
+skl2onnx = "^1.16.0"
+imblearn = "^0.0"
+pingouin = "^0.5.4"
+xgboost = "^2.0.3"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "*"
