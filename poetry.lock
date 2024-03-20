@@ -12,6 +12,40 @@ files = [
 ]
 
 [[package]]
+name = "aif360"
+version = "0.6.0"
+description = "IBM AI Fairness 360"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "aif360-0.6.0-py3-none-any.whl", hash = "sha256:d3a39426552cd40b2a39f4469b57456ac5c286971d9f34930c1e9c66337047f6"},
+    {file = "aif360-0.6.0.tar.gz", hash = "sha256:c0cc9487bae8db2407b4967a2b59904a0417948fca62f602c25f8320c0287440"},
+]
+
+[package.dependencies]
+matplotlib = "*"
+numpy = ">=1.16"
+pandas = ">=0.24.0"
+scikit-learn = ">=1.0"
+scipy = ">=1.2.0"
+
+[package.extras]
+adversarialdebiasing = ["tensorflow (>=1.13.1)"]
+all = ["BlackBoxAuditing", "adversarial-robustness-toolbox (>=1.0.0)", "cvxpy (>=1.0)", "fairlearn (>=0.7,<1.0)", "igraph[plotting]", "inFairness (>=0.2.2)", "ipympl", "jinja2 (>3.1.0)", "jupyter", "lightgbm", "lime", "pot", "pytest (>=3.5)", "pytest-cov (>=2.8.1)", "rpy2", "seaborn", "skorch", "sphinx", "sphinx-rtd-theme", "tensorflow (>=1.13.1)", "torch", "tqdm"]
+art = ["adversarial-robustness-toolbox (>=1.0.0)"]
+disparateimpactremover = ["BlackBoxAuditing"]
+docs = ["fairlearn (>=0.7,<1.0)", "jinja2 (>3.1.0)", "sphinx", "sphinx-rtd-theme"]
+fairadapt = ["rpy2"]
+infairness = ["inFairness (>=0.2.2)", "skorch"]
+lfr = ["torch"]
+lime = ["lime"]
+notebooks = ["igraph[plotting]", "ipympl", "jupyter", "lightgbm", "seaborn", "tqdm"]
+optimaltransport = ["pot"]
+optimpreproc = ["cvxpy (>=1.0)"]
+reductions = ["fairlearn (>=0.7,<1.0)"]
+tests = ["BlackBoxAuditing", "adversarial-robustness-toolbox (>=1.0.0)", "cvxpy (>=1.0)", "fairlearn (>=0.7,<1.0)", "igraph[plotting]", "inFairness (>=0.2.2)", "ipympl", "jupyter", "lightgbm", "lime", "pot", "pytest (>=3.5)", "pytest-cov (>=2.8.1)", "rpy2", "seaborn", "skorch", "tensorflow (>=1.13.1)", "torch", "tqdm"]
+
+[[package]]
 name = "anyio"
 version = "4.3.0"
 description = "High level compatibility layer for multiple asynchronous event loop implementations"
@@ -4199,4 +4233,4 @@ scikit-learn = ["scikit-learn"]
 [metadata]
 lock-version = "2.0"
 python-versions = "~3.11"
-content-hash = "32d2b6a42f8a95821da63c2713a8d3d897ca212819362004c1e6420d7059085b"
+content-hash = "88cae22959dddcfbd6066de830692f8a8aa8bff4f440fd8df685f8404aabc9d9"
