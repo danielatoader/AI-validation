@@ -30,6 +30,7 @@ imblearn = "^0.0"
 pingouin = "^0.5.4"
 xgboost = "^2.0.3"
 aif360 = {extras = ["reductions"], version = "^0.6.0"}
+onnxmltools = "^1.12.0"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "*"
