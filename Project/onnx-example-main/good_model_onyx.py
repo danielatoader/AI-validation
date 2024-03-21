@@ -207,57 +207,17 @@ X = X.astype(np.float32)
 # TODO: Instead of a single train-test split, consider using cross-validation to assess model performance more robustly. This approach can help ensure the model's generalizability across different subsets of our data.
 # Let's split the dataset into train and test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=True, stratify=y)
-#%%
-# TODO: Further explore feature engineering possibilities. Creating new features based on domain knowledge can provide the model with additional insights, potentially improving performance
-
-# Initializing and training the RandomForestClassifier
-clf = RandomForestClassifier(n_estimators=100, random_state=42)
-clf.fit(X_train, y_train)
-
-# Getting feature importances
-feature_importances = clf.feature_importances_
-
-# Converting feature importances into a more readable format
-features = pd.DataFrame({
-    'Feature': X.columns,
-    'Importance': feature_importances
-})
-
-# Sorting features by importance
-features_sorted = features.sort_values(by='Importance', ascending=False)
-
-# Plotting the top 50 features
-plt.figure(figsize=(20, 10))
-sns.barplot(x='Importance', y='Feature', data=features_sorted.head(50))
-plt.title('Top 50 features')
-plt.show()
 #%% md
 # # Feature scaling and model training
 #%%
-classifier = xgb.XGBClassifier(
-    n_estimators=500,
-    learning_rate=0.01,
-    max_depth=5,
-    subsample=0.9,
-    colsample_bytree=0.9,
-    scale_pos_weight=1,
-    use_label_encoder=False,  # To avoid warning
-    eval_metric='logloss',  # Evaluation metric to avoid warning
-    random_state=0
-)
+# Define a gradient boosting classifier
+from sklearn.ensemble import GradientBoostingClassifier
+classifier = GradientBoostingClassifier(n_estimators=500, learning_rate=1.0, max_depth=1, random_state=0)
 #%%
-# Create a pipeline object with our selector and classifier
-# NOTE: You can create custom pipeline objects but they must be registered to onnx or it will not recognise them
-# Because of this we recommend using the onnx known objects as defined in the documentation
-# TODO: The pipeline construction and inclusion of feature scaling via StandardScaler is a good practice, ensuring that your model is not biased by the scale of the features.
-pipeline_steps = [
-    ('filter_features', FeatureFilter(non_fair_keywords)),  # Filter non-fair features
-    ('scaler', StandardScaler()),  # First, scale the features
-    ('pca', PCA(n_components=0.95)),  # Then, apply PCA to reduce dimensionality, retaining 95% variance
-    ('classification', classifier)  # Finally, use the classifier for prediction
-]
-
-pipeline = Pipeline(steps=pipeline_steps)
+from sklearn.feature_selection import VarianceThreshold
+selector = VarianceThreshold()
+#%%
+pipeline = Pipeline(steps=[('feature selection', selector), ('classification', classifier)])
 
 # Let's train a simple model
 pipeline.fit(X_train, y_train)
@@ -284,35 +244,7 @@ print(f'F1 Score: {f1:.4f}')
 
 # print confusion matrix
 from sklearn.metrics import confusion_matrix
-
-
-# Adjust the classification threshold
-threshold = 0.9  # Set this to the new threshold you want to test
-y_pred_proba = pipeline.predict_proba(X_test)[:, 1]  # Get the probabilities for the positive class
-y_pred_adjusted = (y_pred_proba >= threshold).astype(int)  # Apply the new threshold to make predictions
-
-# Evaluate the adjusted predictions
-accuracy_adjusted = accuracy_score(y_test, y_pred_adjusted)
-precision_adjusted = precision_score(y_test, y_pred_adjusted)
-recall_adjusted = recall_score(y_test, y_pred_adjusted)
-f1_adjusted = f1_score(y_test, y_pred_adjusted)
-
-print(f'Adjusted Accuracy: {accuracy_adjusted:.4f}')
-print(f'Adjusted Precision: {precision_adjusted:.4f}')
-print(f'Adjusted Recall: {recall_adjusted:.4f}')
-print(f'Adjusted F1 Score: {f1_adjusted:.4f}')
-
-# Print the confusion matrix
-conf_matrix = confusion_matrix(y_test, y_pred)
-# conf_matrix = confusion_matrix(y_test, y_pred_adjusted)
-
-# Plot the confusion matrix
-plt.figure(figsize=(8, 6))
-sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', cbar=False, xticklabels=['No Fraud', 'Fraud'], yticklabels=['No Fraud', 'Fraud'])
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.title('Confusion Matrix')
-plt.show()
+confusion_matrix(y_test, y_pred)
 
 #%%
 # Let's convert the model to ONNX
