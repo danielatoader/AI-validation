@@ -4,48 +4,48 @@ Metrics model 1:										Metrics model 2:
 +==========+============+=============+==========+==========+==========+			+==========+============+=============+==========+==========+==========+
 | Original |   0.934836 |    0.808392 | 0.456917 | 0.583838 | 0.722439 |			| Original |   0.730803 |    0.203822 | 0.581818 | 0.301887 | 0.664591 |
 +----------+------------+-------------+----------+----------+----------+			+----------+------------+-------------+----------+----------+----------+
-| Mutated  |   0.512652 |    0.278218 | 0.749911 | 0.405861 | 0.597437 |			| Mutated  |   0.365254 |    0.222562 | 0.691785 | 0.336776 | 0.478934 |
+| Mutated  |   0.515341 |    0.287413 | 0.764604 | 0.417783 | 0.603284 |			| Mutated  |   0.361616 |    0.225894 | 0.698264 | 0.341356 | 0.477681 |
 +----------+------------+-------------+----------+----------+----------+			+----------+------------+-------------+----------+----------+----------+
 
 Model 1 Confusion matrix Original data:		Model 1 Confusion matrix Mutated data:		Model 2 Confusion matrix Original data:		Model 2 Confusion matrix Mutated data:
 +--------------------+------------+------------+		+--------------------+------------+------------+		+--------------------+------------+------------+		+--------------------+------------+------------+
 | Actual\Predicted   |   Negative |   Positive |		| Actual\Predicted   |   Negative |   Positive |		| Actual\Predicted   |   Negative |   Positive |		| Actual\Predicted   |   Negative |   Positive |
 +====================+============+============+		+====================+============+============+		+====================+============+============+		+====================+============+============+
-| Negative           |      11243 |        137 |		| Negative           |       4378 |       5461 |		| Negative           |       8505 |       2875 |		| Negative           |       2581 |       7119 |
+| Negative           |      11243 |        137 |		| Negative           |       4318 |       5452 |		| Negative           |       8505 |       2875 |		| Negative           |       2481 |       7169 |
 +--------------------+------------+------------+		+--------------------+------------+------------+		+--------------------+------------+------------+		+--------------------+------------+------------+
-| Positive           |        687 |        578 |		| Positive           |        702 |       2105 |		| Positive           |        529 |        736 |		| Positive           |        908 |       2038 |
+| Positive           |        687 |        578 |		| Positive           |        677 |       2199 |		| Positive           |        529 |        736 |		| Positive           |        904 |       2092 |
 +--------------------+------------+------------+		+--------------------+------------+------------+		+--------------------+------------+------------+		+--------------------+------------+------------+
 
 
-
-Model 1
-Population size: 12645
-  generation    number of flips    mean iterations to flip    standard deviation iterations to flip
-------------  -----------------  -------------------------  ---------------------------------------
-           0               3636                    3155.6                                   1826.79
-           1               5177                    3160.25                                  1824.77
 
 Model 2
 Population size: 12645
   generation    number of flips    mean iterations to flip    standard deviation iterations to flip
 ------------  -----------------  -------------------------  ---------------------------------------
-           0               6119                    3164.15                                  1826.74
-           1               5095                    3181.35                                  1829.65
+           0               6269                    3154.14                                  1833.95
+           1               5048                    3163.17                                  1820.31
+Model 1
+Population size: 12645
+  generation    number of flips    mean iterations to flip    standard deviation iterations to flip
+------------  -----------------  -------------------------  ---------------------------------------
+           0               3657                    3190.84                                  1825.23
+           1               5242                    3149.52                                  1823.28
+
 
 
 
 Ratio's true positive samples:
 
 samples model 1:    12646
-positives model 1:  2807
+positives model 1:  2876
 
 samples model 2:    12646
-positives model 2:  2946
+positives model 2:  2996
 
 
 
-Average certainty model 1 original data: 0.898590323947644
-Average certainty model 1 mutated data: 0.4243764044428558
+Average certainty model 1 original data: 0.9224485853388641
+Average certainty model 1 mutated data: 0.7840328123983129
 
-Average certainty model 2 original data: 0.6745254304438252
-Average certainty model 2 mutated data: 0.30548364357180596
+Average certainty model 2 original data: 0.8494022675067741
+Average certainty model 2 mutated data: 0.8367385394481208
